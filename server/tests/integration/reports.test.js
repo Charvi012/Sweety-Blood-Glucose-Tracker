@@ -1,3 +1,4 @@
+import { pool } from '../../src/db/pool.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { app, closeDatabase, createLoggedInAgent, resetDatabase, setupDatabase } from '../helpers.js';
@@ -106,5 +107,51 @@ describe('GET /api/reports', () => {
   ])('rejects invalid query %j', async (query) => {
     const { agent } = await createLoggedInAgent();
     await agent.get('/api/reports').query(query).expect(400);
+  });
+});
+describe('GET /api/reports/patients/:patientId', () => {
+  it('allows a doctor to view an assigned patient report', async () => {
+    const doctor = await createLoggedInAgent({ role: 'doctor' });
+    const patient = await createLoggedInAgent();
+
+    await pool.query(
+      `INSERT INTO doctor_patients (doctor_id, patient_id)
+       VALUES ($1, $2)`,
+      [doctor.user.id, patient.user.id],
+    );
+
+    await seed(patient.agent, [[SELECTED, 'morning_fasting', 120]]);
+
+    const { body } = await doctor.agent
+      .get(`/api/reports/patients/${patient.user.id}`)
+      .query({ type: 'daily', date: SELECTED })
+      .expect(200);
+
+    expect(body.report.summary).toEqual({
+      count: 1,
+      highest: 120,
+      lowest: 120,
+      average: 120,
+    });
+  });
+
+  it('blocks a doctor from viewing an unassigned patient report', async () => {
+    const doctor = await createLoggedInAgent({ role: 'doctor' });
+    const patient = await createLoggedInAgent();
+
+    await doctor.agent
+      .get(`/api/reports/patients/${patient.user.id}`)
+      .query({ type: 'daily', date: SELECTED })
+      .expect(403);
+  });
+
+  it('blocks a patient from accessing the Doctor report endpoint', async () => {
+    const patient = await createLoggedInAgent();
+    const anotherPatient = await createLoggedInAgent();
+
+    await patient.agent
+      .get(`/api/reports/patients/${anotherPatient.user.id}`)
+      .query({ type: 'daily', date: SELECTED })
+      .expect(403);
   });
 });

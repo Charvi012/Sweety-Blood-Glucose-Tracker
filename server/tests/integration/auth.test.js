@@ -14,12 +14,24 @@ describe('POST /api/auth/register', () => {
     const res = await request(app).post('/api/auth/register').send(body);
 
     expect(res.status).toBe(201);
-    expect(res.body.user).toEqual({ id: expect.any(String), name: 'Asha', email: 'asha@example.com' });
+    expect(res.body.user).toEqual({ id: expect.any(String), name: 'Asha', email: 'asha@example.com', role: 'patient' });
     expect(JSON.stringify(res.body)).not.toMatch(/password|hash/i);
     expect(res.headers['set-cookie'][0]).toMatch(/HttpOnly/i);
     expect(res.headers['set-cookie'][0]).toMatch(/SameSite=Strict/i);
   });
+  it('creates a doctor account when doctor role is selected', async () => {
+  const res = await request(app)
+    .post('/api/auth/register')
+    .send({ ...body, email: 'doctor@example.com', role: 'doctor' });
 
+  expect(res.status).toBe(201);
+  expect(res.body.user).toEqual({
+    id: expect.any(String),
+    name: 'Asha',
+    email: 'doctor@example.com',
+    role: 'doctor',
+  });
+  });
   it('stores a bcrypt hash, not the plain-text password', async () => {
     await request(app).post('/api/auth/register').send(body);
     const { rows } = await pool.query('SELECT password_hash FROM users');
