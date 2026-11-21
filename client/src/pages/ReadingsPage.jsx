@@ -4,6 +4,7 @@ import ReadingForm from '../components/ReadingForm.jsx';
 import ReadingsList from '../components/ReadingsList.jsx';
 import { SLOTS } from '../utils/constants.js';
 import { formatDate, todayLocal } from '../utils/dates.js';
+import ConnectDoctor from '../components/ConnectDoctor.jsx';
 
 export default function ReadingsPage() {
   const today = todayLocal();
@@ -54,49 +55,65 @@ export default function ReadingsPage() {
     }
   };
 
-  return (
-    <div className="two-col">
-      <section className="panel" aria-label="Reading form">
-        {/* key resets the form's state when switching between add and edit */}
-        <ReadingForm
-          key={editing?.id ?? `new-${viewDate}-${formVersion}`}
-          reading={editing}
-          defaultDate={viewDate}
-          today={today}
-          onSubmit={handleSubmit}
-          onCancel={() => setEditing(null)}
-        />
-      </section>
+    return (
+    <>
+      <ConnectDoctor />
 
-      <section className="panel" aria-label="Readings for the selected day">
-        <div className="panel-head">
-          <h2>Readings</h2>
-          <label className="inline-field">
-            <span>Day</span>
-            <input
-              type="date"
-              value={viewDate}
-              max={today}
-              onChange={(e) => e.target.value && setViewDate(e.target.value)}
+      <div className="two-col">
+        <section className="panel" aria-label="Reading form">
+          <ReadingForm
+            key={editing?.id ?? `new-${viewDate}-${formVersion}`}
+            reading={editing}
+            defaultDate={viewDate}
+            today={today}
+            onSubmit={handleSubmit}
+            onCancel={() => setEditing(null)}
+          />
+        </section>
+
+        <section className="panel" aria-label="Readings for the selected day">
+          <div className="panel-head">
+            <h2>Readings</h2>
+            <label className="inline-field">
+              <span>Day</span>
+              <input
+                type="date"
+                value={viewDate}
+                max={today}
+                onChange={(e) => e.target.value && setViewDate(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <p className="muted">
+            {readings.length} of {SLOTS.length} readings logged for {formatDate(viewDate)}
+          </p>
+
+          <div role="status" aria-live="polite">
+            {notice && <p className="banner banner-ok">{notice}</p>}
+          </div>
+
+          {loadError && (
+            <p role="alert" className="banner banner-error">
+              {loadError}
+            </p>
+          )}
+
+          {loading ? (
+            <p className="muted">Loading...</p>
+          ) : (
+            <ReadingsList
+              date={viewDate}
+              readings={readings}
+              onEdit={(r) => {
+                setNotice('');
+                setEditing(r);
+              }}
+              onDelete={handleDelete}
             />
-          </label>
-        </div>
-
-        <p className="muted">
-          {readings.length} of {SLOTS.length} readings logged for {formatDate(viewDate)}
-        </p>
-
-        <div role="status" aria-live="polite">
-          {notice && <p className="banner banner-ok">{notice}</p>}
-        </div>
-        {loadError && <p role="alert" className="banner banner-error">{loadError}</p>}
-
-        {loading ? (
-          <p className="muted">Loading…</p>
-        ) : (
-          <ReadingsList date={viewDate} readings={readings} onEdit={(r) => { setNotice(''); setEditing(r); }} onDelete={handleDelete} />
-        )}
-      </section>
-    </div>
+          )}
+        </section>
+      </div>
+    </>
   );
 }

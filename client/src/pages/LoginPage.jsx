@@ -15,7 +15,9 @@ export default function LoginPage() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  if (user) return <Navigate to="/readings" replace />;
+  if (user) {
+     return <Navigate to={user.role === 'doctor' ? '/doctor' : '/readings'} replace />;
+  }
 
   const set = (field) => (e) => setValues((v) => ({ ...v, [field]: e.target.value }));
 
@@ -28,8 +30,12 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
-      await login({ email: values.email.trim(), password: values.password });
-      navigate(location.state?.from?.pathname ?? '/readings', { replace: true });
+      const loggedInUser = await login({
+        email: values.email.trim(),
+        password: values.password,
+      });
+      const destination = loggedInUser.role === 'doctor' ? '/doctor' : '/readings';
+      navigate(location.state?.from?.pathname ?? destination, { replace: true });
     } catch (err) {
       const { fields, message } = toFormErrors(err);
       setErrors(fields);

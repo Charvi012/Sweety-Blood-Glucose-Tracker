@@ -19,11 +19,13 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (credentials) => {
     const data = await api.login(credentials);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const register = useCallback(async (details) => {
     const data = await api.register(details);
     setUser(data.user);
+    return data.user;
   }, []);
 
   const logout = useCallback(async () => {

@@ -52,4 +52,15 @@ export const api = {
   deleteReading: (id) => request('DELETE', `/readings/${id}`),
 
   getReport: (type, date) => request('GET', '/reports', { query: { type, date } }),
+      // Patient-doctor connections
+  connectDoctor: (email) =>
+    request('POST', '/patients/doctor', { body: { email } }),
+
+  // Doctor dashboard
+  getAssignedPatients: () =>
+    request('GET', '/patients/assigned'),
+
+  // Reports for an assigned patient
+  getPatientReport: (patientId, type, date) =>
+    request('GET', `/reports/patients/${patientId}`, { query: { type, date } }),
 };
