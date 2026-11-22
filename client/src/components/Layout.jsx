@@ -13,7 +13,7 @@ export default function Layout() {
   return (
     <>
       <header className="topbar">
-        <span className="brand">Sweety</span>
+        <span className="brand">Sweety - Blood Glucose Tracker</span>
 
         <nav aria-label="Main">
           {user.role === 'patient' ? (
