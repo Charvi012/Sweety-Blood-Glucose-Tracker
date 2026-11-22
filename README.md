@@ -166,8 +166,37 @@ Open the application in your browser:
 
 Register as a Patient or Doctor to begin using Sweety.
 
-## Running Tests
 
+## Demo Accounts and Sample Data
+
+Sweety includes a seed script that creates demo Patient and Doctor accounts with sample glucose readings.
+
+### Create demo data
+
+First, make sure the PostgreSQL database is running and migrations have been applied.
+
+From the project root, run:
+
+```bash
+cd server
+npm run seed
+```
+
+The script creates the following demo accounts:
+
+| Role | Email | Password |
+|---|---|---|
+| Patient | `demo.patient@example.com` | `SweetyDemo2026!` |
+| Doctor | `demo.doctor@example.com` | `SweetyDemo2026!` |
+
+### Sample data
+
+- Creates eight sample glucose readings across yesterday and today.
+- Connects the Demo Doctor account to the Demo Patient account.
+- Uses the application's configured time zone for the reading dates.
+
+Running the seed script again replaces all existing readings belonging to the demo patient with the eight sample readings.
+## Running Tests
 ### Backend tests
 
 The backend integration tests require the `sweety_test` PostgreSQL database.
