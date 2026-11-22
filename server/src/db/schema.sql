@@ -22,3 +22,18 @@ CREATE TABLE IF NOT EXISTS readings (
   -- at the database level, even under concurrent requests.
   CONSTRAINT readings_user_date_slot_uniq UNIQUE (user_id, reading_date, slot)
 );
+-- Roles: every account is a 'patient' (default) or a 'doctor'.
+-- Existing users automatically receive the 'patient' role.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'patient'
+  CHECK (role IN ('patient', 'doctor'));
+
+-- A patient assigns a doctor; the doctor can then view that patient's reports.
+CREATE TABLE IF NOT EXISTS doctor_patients (
+  doctor_id  UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  patient_id UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (doctor_id, patient_id),
+  CHECK (doctor_id <> patient_id)
+);
+
+CREATE INDEX IF NOT EXISTS doctor_patients_patient_idx ON doctor_patients (patient_id);
