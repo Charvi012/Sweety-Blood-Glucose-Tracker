@@ -1,126 +1,391 @@
 # Sweety – Blood Glucose Tracker
 
-A small web app where a person with diabetes records up to four blood-glucose readings a day and views daily, month-to-date and previous-month reports.
+Sweety is a web-based blood glucose tracking application that allows patients to record their blood glucose readings, view daily and monthly reports, and connect with registered doctors. Doctors can view their assigned patients and access their reports through a separate dashboard.
 
-**Stack:** Node.js + Express API · PostgreSQL · React (Vite) frontend · Vitest + Supertest + Testing Library.
+## Technology Stack
+
+- **Frontend:** React 18, Vite
+- **Backend:** Node.js, Express
+- **Database:** PostgreSQL 16
+- **Authentication:** JWT, HTTP-only cookies, bcrypt
+- **Validation:** Zod
+- **Testing:** Vitest, Supertest, React Testing Library
+- **Database setup:** Docker Compose
 
 ## Features
 
-- **Sign up / log in** with name, email and password. Passwords are hashed with bcrypt; users only ever see their own readings.
-- **Add, view, edit and delete readings** (date, one of four time slots, value in mg/dl) with clear validation messages in the UI.
-- **Reports** for a selected date: *Daily*, *Month-to-date* and *Previous month*, each showing highest, lowest, average (1 decimal) and count. The daily report also lists every reading with its slot. Empty periods show a friendly empty state.
+### 1. Patient
 
-## Quick start
+- Register and log in as a patient.
+- Add, view, edit and delete blood glucose readings.
+- Record up to four readings per day:
+  - Morning (fasting)
+  - After breakfast
+  - After lunch
+  - After dinner
+- View daily, month-to-date and previous-month reports.
+- Connect with a registered doctor using the doctor's email address.
 
-Requirements: Node.js 20.6+ and PostgreSQL 14+ (Docker is the easiest way to get it).
+### 2. Doctor
+
+- Register and log in as a doctor.
+- Access a dedicated doctor dashboard.
+- View assigned patients.
+- Select a patient and view their blood glucose reports.
+- Access is restricted to patients assigned to that doctor.
+
+### 3. Security and Validation
+
+- Passwords are hashed using bcrypt and never stored as plain text.
+- JWT-based authentication using HTTP-only cookies.
+- Role-based access control for patients and doctors.
+- Server-side validation of incoming requests.
+- Reading values must be whole numbers between 40 and 600 mg/dL.
+- Only one reading is allowed per time slot per day.
+- A maximum of four readings is allowed per day.
+- Future reading dates are not allowed.
+- Database constraints provide additional data integrity.
+
+## Prerequisites
+
+Install the following before running the application:
+
+- Git
+- Node.js 20.6 or later
+- npm
+- Docker Desktop with Docker Compose
+
+**PostgreSQL does not need to be installed separately.** Docker Compose runs the PostgreSQL database.
+
+The backend and frontend run separately using Node.js and npm.
+
+## Installation and Setup
+
+### 1. Clone the repository
 
 ```bash
-# 1. Start PostgreSQL (creates the `sweety` and `sweety_test` databases)
-docker compose up -d
+git clone https://github.com/Charvi012/Sweety-Blood-Glucose-Tracker.git
+cd Sweety-Blood-Glucose-Tracker
+```
 
-# 2. API
+### 2. Start the PostgreSQL database
+
+From the project root, run:
+
+```bash
+docker compose up -d db
+```
+
+This starts PostgreSQL 16 and creates the `sweety` database.
+
+The initialization script in `db-init/` also creates the `sweety_test` database when the PostgreSQL data volume is initialized for the first time.
+
+To check the database container:
+
+```bash
+docker compose ps
+```
+
+### 3. Configure backend environment variables
+
+Create a `.env` file from the example.
+
+**Windows PowerShell:**
+
+```powershell
+Copy-Item .\server\.env.example .\server\.env
+```
+
+**Linux/macOS:**
+
+```bash
+cp server/.env.example server/.env
+```
+
+Open `server/.env` and configure `JWT_SECRET`.
+
+Generate a secure secret using:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
+
+Copy the generated value into `JWT_SECRET` in `server/.env`.
+
+The `.env.example` file contains the following configuration variables:
+
+| Variable | Purpose |
+|---|---|
+| `NODE_ENV` | Application environment |
+| `PORT` | Backend server port |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Secret used to sign authentication tokens |
+| `JWT_EXPIRES_IN_HOURS` | Session expiration time |
+| `BCRYPT_COST` | Password hashing cost |
+| `APP_TIMEZONE` | Time zone used for date validation |
+| `CLIENT_ORIGIN` | Allowed frontend origin |
+
+
+### 4. Install backend dependencies and run migrations
+
+Open a terminal at the project root:
+
+```bash
 cd server
-cp .env.example .env          # then set JWT_SECRET (instructions inside the file)
 npm install
-npm run migrate               # creates the tables
-npm run dev                   # http://localhost:4000
+npm run migrate
+```
 
-# 3. Frontend (new terminal)
+Start the backend:
+
+```bash
+npm run dev
+```
+
+The backend API runs at:
+
+`http://localhost:4000`
+
+### 5. Install and start the frontend
+
+Open a second terminal at the project root:
+
+```bash
 cd client
 npm install
-npm run dev                   # http://localhost:5173
+npm run dev
 ```
 
-Open http://localhost:5173, create an account and add a reading.
+The frontend runs at:
 
-Not using Docker? Create the databases yourself (`createdb sweety && createdb sweety_test`) and update `DATABASE_URL` in `server/.env`.
+`http://localhost:5173`
 
-## Running the tests
+Open the application in your browser:
+
+`http://localhost:5173`
+
+Register as a Patient or Doctor to begin using Sweety.
+
+## Running Tests
+
+### Backend tests
+
+The backend integration tests require the `sweety_test` PostgreSQL database.
+
+From the project root:
 
 ```bash
-cd server && npm test          # unit + integration (needs the sweety_test database)
-cd server && npm run test:unit # unit tests only, no database required
-cd client && npm test          # validation, form and report component tests
+cd server
+npm test
 ```
 
-Integration tests use `TEST_DATABASE_URL` if set, otherwise `postgres://sweety:sweety@localhost:5432/sweety_test`. They truncate tables between tests, so never point it at real data.
+To run only unit tests:
 
-**What the tests cover**
-
-| Area | Examples |
-| --- | --- |
-| Validation (unit) | every reading rule and its exact message, boundary values 40/600, impossible dates, password rules |
-| Date logic (unit) | previous-month range across year boundary and leap years, "today" in a time zone |
-| Auth (integration) | bcrypt hash stored, duplicate email (any case), generic login error, tampered token, logout |
-| Readings (integration) | create/update/delete, one-per-slot, max 4/day, moving a reading into a full day or taken slot, a concurrent double submit, **user isolation** (404 on other users' readings) |
-| Reports (integration) | exact date ranges incl. first/last day boundaries, rounding to 1 decimal, empty period, per-user isolation |
-| UI | form shows the right error messages, server errors appear next to the field, report card empty/filled states |
-
-## Project structure
-
-```
-server/src
-  app.js, server.js          Express app (testable, no listen) and the entry point
-  config/                    Environment validation (fails fast on bad config)
-  db/                        pg pool, schema.sql, migration runner
-  middleware/                auth, validation, error handling, rate limits
-  modules/auth|readings|reports
-      routes -> controller -> service -> repository   (HTTP / rules / SQL kept apart)
-  utils/                     date helpers, AppError, asyncHandler
-client/src
-  api/                       fetch wrapper + ApiError
-  context/                   AuthContext
-  components/ pages/ utils/
+```bash
+npm run test:unit
 ```
 
-## API
+### Frontend tests
 
-All endpoints are under `/api`. Errors always look like `{ "error": { "code", "message", "fields?" } }`.
+From the project root, open a separate terminal:
 
-| Method | Path | Notes |
-| --- | --- | --- |
-| POST | `/auth/register` | `{ name, email, password }` → 201, sets login cookie |
-| POST | `/auth/login` | `{ email, password }` |
-| POST | `/auth/logout` | clears the cookie |
-| GET | `/auth/me` | current user |
-| GET | `/readings?from=&to=` | own readings, newest day first, slots in order |
-| POST | `/readings` | `{ date, slot, value }` |
-| GET/PUT/DELETE | `/readings/:id` | PUT replaces date, slot and value |
-| GET | `/reports?type=daily\|month-to-date\|monthly&date=YYYY-MM-DD` | summary (+ readings for `daily`) |
+```bash
+cd client
+npm test
+```
 
-Slots: `morning_fasting`, `after_breakfast`, `after_lunch`, `after_dinner`.
+### Production build
 
-## Design decisions
+To verify the frontend production build:
 
-- **Rules are enforced on the server first.** The UI mirrors them for instant feedback, but the API re-validates everything with zod.
-- **The database is the last line of defence.** `CHECK` constraints on slot and value, and a `UNIQUE (user_id, reading_date, slot)` constraint. With four slots, that unique constraint also guarantees "max 4 readings per day" even when two requests race. The service checks first only so the user gets the clear message from the brief.
-- **Reports are computed in SQL** (`MIN/MAX/AVG/COUNT`), not by loading rows into Node.
-- **Dates are plain `YYYY-MM-DD` strings** end to end (the pg DATE type is parsed as a string), so time zones can never move a reading to another day.
-- **Layered modules** (routes → controller → service → repository) keep HTTP, business rules and SQL separate and easy to test.
+```bash
+cd client
+npm run build
+```
+
+**Important:** Integration tests use `TEST_DATABASE_URL` if configured. Otherwise, they use:
+
+`postgres://sweety:sweety@localhost:5432/sweety_test`
+
+Tests truncate database tables between test cases. Never configure the test database to point to real user data.
+
+## Assignment Requirements
+
+The following required features from the assignment have been implemented.
+
+### 1. Sign Up and Log In
+
+- Users can register with their name, email and password.
+- Users can log in using their registered credentials.
+- Passwords are hashed using bcrypt.
+- Each patient's reading data is isolated from other patients' data.
+
+### 2. Add, View, Edit and Delete Readings
+
+Patients can manage their blood glucose readings.
+
+Each reading contains:
+
+- Date
+- Time slot
+- Glucose value in mg/dL
+
+The four supported time slots are morning (fasting), after breakfast, after lunch and after dinner.
+
+**Validation rules:**
+
+| Rule | Expected validation message |
+|---|---|
+| Value is required | Please enter a glucose value. |
+| Value must be a whole number between 40 and 600 | Value must be between 40 and 600 mg/dL. |
+| Only one reading per slot per day | You already have an [slot] reading for this date. |
+| Maximum four readings per day | You can add only 4 readings per day. |
+| Date cannot be in the future | Date cannot be in the future. |
+
+Validation is performed on both the frontend and backend. Database constraints provide additional protection against duplicate readings.
+
+### 3. Reports
+
+The application provides three report types:
+
+| Report | Date range |
+|---|---|
+| Daily | Selected date |
+| Month-to-date | First day of the selected month through the selected date |
+| Previous month | Entire calendar month preceding the selected date's month |
+
+Each report displays:
+
+- Highest reading
+- Lowest reading
+- Average reading, rounded to one decimal place
+- Number of readings
+
+The daily report also displays individual readings with their corresponding time slots.
+
+A friendly empty state is displayed when no readings exist for the selected reporting period.
+
+## Assignment Bonus Tasks
+
+The following optional bonus tasks have been addressed:
+
+| Bonus task | Status | Implementation |
+|---|---|---|
+| Pagination on `GET /readings` | Not implemented | Not included in the current version. |
+| Monthly line chart | Not implemented | Not included in the current version. |
+| Docker Compose for PostgreSQL and application | Partially implemented | Docker Compose starts PostgreSQL 16. The backend and frontend are started separately using npm. |
+| React Testing Library for reading form | Completed | Reading form component tests are implemented using React Testing Library. |
+| Redis report caching | Not implemented | Not included in the current version. |
+| BullMQ background job | Not implemented | Not included in the current version. |
+| Doctor role | Completed | Doctor dashboard, assigned-patient listing and assigned-patient report access. |
+
+## API Endpoints
+
+All endpoints are prefixed with `/api`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| POST | `/api/auth/register` | Register a patient or doctor |
+| POST | `/api/auth/login` | Log in |
+| POST | `/api/auth/logout` | Log out |
+| GET | `/api/auth/me` | Get the authenticated user |
+| GET | `/api/readings?from=&to=` | List the authenticated user's readings |
+| POST | `/api/readings` | Create a reading |
+| GET | `/api/readings/:id` | Get a reading |
+| PUT | `/api/readings/:id` | Update a reading |
+| DELETE | `/api/readings/:id` | Delete a reading |
+| GET | `/api/reports?type=daily&date=YYYY-MM-DD` | Get a report for the selected date |
+| POST | `/api/patients/doctor` | Connect a patient to a registered doctor |
+| GET | `/api/patients/assigned` | List patients assigned to a doctor |
+| GET | `/api/reports/patients/:patientId` | Get an assigned patient's report (doctor only) |
+
+Protected endpoints require authentication. Patient and doctor endpoints also enforce the appropriate role.
+
+Supported report types are `daily`, `month-to-date` and `monthly`.
+
+## Project Structure
+
+```text
+Sweety-Blood-Glucose-Tracker/
+│
+├── server/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── db/
+│   │   ├── middleware/
+│   │   ├── modules/
+│   │   │   ├── auth/
+│   │   │   ├── readings/
+│   │   │   ├── reports/
+│   │   │   └── patients/
+│   │   ├── utils/
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── tests/
+│   ├── .env.example
+│   └── package.json
+│
+├── client/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── context/
+│   │   ├── pages/
+│   │   │   ├── DoctorPage.jsx
+│   │   │   ├── LoginPage.jsx
+│   │   │   ├── ReadingsPage.jsx
+│   │   │   ├── RegisterPage.jsx
+│   │   │   └── ReportsPage.jsx
+│   │   └── utils/
+│   └── package.json
+│
+├── db-init/
+├── docker-compose.yml
+└── README.md
+```
+
+## Design Decisions
+
+- Business rules are validated on the backend, with frontend validation providing immediate feedback.
+- PostgreSQL constraints provide an additional layer of data integrity.
+- Reports are calculated using SQL aggregate functions.
+- Dates are handled as `YYYY-MM-DD` strings to avoid unintended date changes caused by time zones.
+- Backend modules separate routes, controllers, services and repositories.
+- Role-based middleware restricts access to patient and doctor functionality.
 
 ## Security
 
-- Passwords hashed with bcrypt (cost 12; `bcryptjs`, the pure-JS implementation, so it installs on any machine without native builds). Never logged or returned.
-- Login always performs a bcrypt comparison and returns one generic message, so it does not reveal which emails exist or leak timing differences.
-- Session is a signed JWT (HS256 pinned) in an **httpOnly, SameSite=Strict** cookie (`Secure` in production): JavaScript cannot read it, and cross-site requests do not carry it. The API only accepts JSON bodies, which adds a second CSRF barrier.
-- Every readings/reports query filters by the logged-in user's id taken from the token, never from the request body or URL. Another user's reading returns 404, not 403, so ids cannot be probed.
-- Parameterised SQL everywhere (no string-built queries with user input), `helmet` headers, a 10 KB body limit, rate limits (20 auth attempts / 15 min / IP), CORS limited to the frontend origin, and unknown errors return a generic 500 without internals.
-- The server refuses to start if `JWT_SECRET` is shorter than 32 characters.
+- Passwords are hashed using bcrypt.
+- Authentication uses signed JWTs stored in HTTP-only cookies.
+- API routes enforce authentication and role-based authorization.
+- Database queries use parameterized SQL.
+- Helmet security headers and request rate limits are enabled.
+- CORS is restricted to the configured frontend origin.
+- Unknown server errors return generic messages without exposing internal details.
+- The server requires a JWT secret of at least 32 characters.
 
-## Assumptions
+## Notes
 
-The brief left a few things open, so I decided and wrote them down:
+### Assumptions
 
-1. **"Today" / future dates** are judged in `APP_TIMEZONE` (default `Asia/Kolkata`) on the server. The browser uses its own local date; if the two disagree around midnight the server's answer wins and the UI shows its message.
-2. **Reports use the selected date as an anchor.** Daily = that day; month-to-date = 1st of that month → that date; monthly = the whole calendar month *before* the selected date's month. The selected date cannot be in the future.
-3. **Editing** can change date, slot and value, and follows the same rules as adding (a reading moved to a full day or an occupied slot is rejected; it does not conflict with itself).
-4. **Check order:** if a day already has 4 readings you see "You can add only 4 readings per day."; otherwise a taken slot shows "You already have an … reading for this date."
-5. **Value** must be a whole JSON number. `"120"` (a string) or `120.5` is rejected by the API; the UI converts the input to a number.
-6. **Password policy:** at least 8 characters with a letter and a number, at most 72 bytes (bcrypt ignores anything beyond that).
-7. **Duplicate email on sign-up** says so explicitly. That is friendlier but does reveal that the email is registered; a production system might send an email instead.
-8. Sessions last 12 hours (`JWT_EXPIRES_IN_HOURS`); there is no refresh-token flow.
-9. Values are shown without clinical colour-coding or advice, because that needs medical guidance beyond this assignment.
+- The default application time zone is `Asia/Kolkata`.
+- Patients can record up to four readings per day.
+- Reading values must be whole numbers between 40 and 600 mg/dL.
+- Reports include daily, month-to-date and previous-month summaries.
+- A doctor can access reports only for patients assigned to that doctor.
+- The application displays recorded values without providing medical diagnosis or treatment recommendations.
 
-## What I would do next
+### Potential Improvements
 
-Pagination for long histories, a refresh-token flow and account deletion, e2e tests (Playwright), CI running both test suites against a Postgres service, structured logging with request ids, and a Dockerfile for the API.
+With additional development time, the project could be extended with:
+
+- Pagination for longer reading histories.
+- Monthly charts for visualizing glucose trends.
+- Automated end-to-end tests using Playwright.
+- Continuous integration for backend and frontend tests.
+- Redis caching for report results.
+- Background jobs using BullMQ.
+- Structured application logging.
+- Account deletion and improved session management.
+- Dockerfiles for running the complete application in containers.
